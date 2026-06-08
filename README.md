@@ -24,10 +24,11 @@ No install. No dependencies. One script.
 | Smooth animation | Easing-based slide transitions (no jarring jumps) |
 | Multi-monitor aware | Docks to correct screen edge via `Screen.FromHandle` |
 | Pin mode | Click ◉ or Ctrl+P to lock panel visible |
-| Hover dwell | 150ms intentional hover required to reveal (no accidental triggers) |
+| Hover dwell | 2px edge zone + 600ms intentional hover to reveal |
 | Drag aware | Auto-hide pauses while user drags/resizes window |
 | Always on top | Stays visible over your IDE/browser |
-| Minimize to taskbar | Standard window with minimize button |
+| No taskbar icon | Completely invisible when peeked |
+| Silent launch | VBS wrapper hides PowerShell console |
 | Auto-save | Saved tabs persist to `~/.scratchpad/saved/` every 10s |
 | Dark theme | Easy on the eyes during long sessions |
 | Tab management | Click `+` to add, double-click TMP tab to clear |
@@ -41,16 +42,21 @@ No install. No dependencies. One script.
 # Clone and run
 git clone https://github.com/alien-ye/scratchpad.git
 cd scratchpad
-powershell -ExecutionPolicy Bypass -File scratchpad-window.ps1
+powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File scratchpad-window.ps1
 ```
 
-Or just download `scratchpad-window.ps1` and double-click it (if your execution policy allows).
+Or use the included `scratchpad-silent.vbs` for a completely console-free launch (no PowerShell window flash).
 
-## Create a Shortcut
+## Silent Launch (Recommended)
 
-1. Right-click desktop → New → Shortcut
-2. Target: `powershell -ExecutionPolicy Bypass -WindowStyle Hidden -File "C:\path\to\scratchpad-window.ps1"`
-3. Optional: pin to taskbar or Start menu
+Use the VBS wrapper to launch without any console window:
+
+```
+wscript scratchpad-silent.vbs
+```
+
+To auto-start with Windows, place a shortcut to `scratchpad-silent.vbs` in your Startup folder:
+`%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup`
 
 ## Keyboard Shortcuts
 
@@ -67,17 +73,17 @@ Or just download `scratchpad-window.ps1` and double-click it (if your execution 
 The sidebar uses a state machine with three states:
 
 ```
-┌──────────┐   mouse near edge (150ms dwell)   ┌──────────┐
-│   Peek   │ ──────────────────────────────────▶│ Expanded │
-│  (5px)   │◀────────────────────────────────── │  (full)  │
-└──────────┘   mouse away + unfocused (120ms)   └──────────┘
-                                                      │
-                                                 Ctrl+P / ◉
-                                                      ▼
-                                                ┌──────────┐
-                                                │  Pinned  │
-                                                │ (locked) │
-                                                └──────────┘
+┌──────────┐   hover 2px edge zone (600ms dwell)   ┌──────────┐
+│   Peek   │ ──────────────────────────────────────▶│ Expanded │
+│  (5px)   │◀──────────────────────────────────────│  (full)  │
+└──────────┘   mouse away + unfocused (120ms)       └──────────┘
+                                                          │
+                                                     Ctrl+P / ◉
+                                                          ▼
+                                                    ┌──────────┐
+                                                    │  Pinned  │
+                                                    │ (locked) │
+                                                    └──────────┘
 ```
 
 - **Expanded** — fully visible, snapped to right edge

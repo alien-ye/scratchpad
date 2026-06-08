@@ -55,9 +55,9 @@ $form.TopMost = $true
 $form.StartPosition = "Manual"
 $form.Location = New-Object System.Drawing.Point(([System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea.X + [System.Windows.Forms.Screen]::PrimaryScreen.WorkingArea.Width - 500), 50)
 $form.FormBorderStyle = "Sizable"
-$form.MinimizeBox = $true
+$form.MinimizeBox = $false
 $form.MaximizeBox = $false
-$form.ShowInTaskbar = $true
+$form.ShowInTaskbar = $false
 $form.Opacity = 0.97
 $form.BackColor = $bgDark
 $form.ForeColor = $fgText
@@ -231,8 +231,7 @@ $script:sidebar = @{
     HideDelay    = 0
     HideDelayMax = 4            # ticks at 30ms = ~120ms before hide
     HoverDwell   = 0
-    HoverDwellMax = 5           # ticks at 30ms = ~150ms dwell before open
-    IsDragging   = $false
+    HoverDwellMax = 20          # ticks at 30ms = ~600ms dwell before open    IsDragging   = $false
 }
 
 # --- Single animation timer (created ONCE, never recreated) ---
@@ -281,9 +280,9 @@ $dockTimer.Add_Tick({
         $mouseInside = $safeZone.Contains($mouse)
 
         if ($script:sidebar.State -eq "Peek") {
-            # Soft activation: distance-based with dwell
+            # Hover dwell: 2px hot zone + 600ms sustained hover to expand
             $distance = $edgeX - $mouse.X
-            $intentToOpen = ($distance -lt 60) -and ($mouse.Y -ge $form.Top) -and ($mouse.Y -le ($form.Top + $form.Height))
+            $intentToOpen = ($distance -lt 2) -and ($mouse.Y -ge $form.Top) -and ($mouse.Y -le ($form.Top + $form.Height))
             if ($intentToOpen) {
                 $script:sidebar.HoverDwell++
                 if ($script:sidebar.HoverDwell -ge $script:sidebar.HoverDwellMax) {
