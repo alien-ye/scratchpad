@@ -216,7 +216,7 @@ $timer.Start()
 $statusBar = New-Object System.Windows.Forms.StatusStrip
 $statusBar.BackColor = $bgDark
 $statusLabel = New-Object System.Windows.Forms.ToolStripStatusLabel
-$statusLabel.Text = "Ready"
+$statusLabel.Text = ""
 $statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(140, 140, 140)
 $statusBar.Items.Add($statusLabel) | Out-Null
 $form.Controls.Add($statusBar)
@@ -229,9 +229,10 @@ $script:sidebar = @{
     TargetX      = 0
     PeekWidth    = 5
     HideDelay    = 0
-    HideDelayMax = 4            # ticks at 30ms = ~120ms before hide
+    HideDelayMax = 100          # ticks at 30ms = ~3 seconds before hide
     HoverDwell   = 0
-    HoverDwellMax = 20          # ticks at 30ms = ~600ms dwell before open    IsDragging   = $false
+    HoverDwellMax = 20          # ticks at 30ms = ~600ms dwell before open
+    IsDragging   = $false
 }
 
 # --- Single animation timer (created ONCE, never recreated) ---
@@ -252,13 +253,20 @@ $script:animTimer.Add_Tick({
 # --- Drag detection (pause docking during user drag) ---
 $form.Add_ResizeBegin({ $script:sidebar.IsDragging = $true })
 $form.Add_ResizeEnd({ $script:sidebar.IsDragging = $false })
-$form.Add_Move({
-    # If animTimer is not running and state is Expanded/Pinned, user is dragging
-    if (-not $script:animTimer.Enabled -and $script:sidebar.State -ne "Peek") {
-        $script:sidebar.IsDragging = $true
+
+# --- Resume from sleep/lock: force peek ---
+[Microsoft.Win32.SystemEvents]::Add_SessionSwitch({
+    param($sender, $e)
+    if ($e.Reason -eq [Microsoft.Win32.SessionSwitchReason]::SessionUnlock) {
+        if ($script:sidebar.State -eq "Expanded") {
+            $screen = [System.Windows.Forms.Screen]::FromHandle($form.Handle)
+            $script:sidebar.State = "Peek"
+            $script:sidebar.TargetX = $screen.WorkingArea.X + $screen.WorkingArea.Width - $script:sidebar.PeekWidth
+            $script:sidebar.HideDelay = 0
+            $script:animTimer.Start()
+        }
     }
 })
-$form.Add_Activated({ $script:sidebar.IsDragging = $false })
 
 # --- Sidebar behavior timer (30ms poll, strict priority logic) ---
 $dockTimer = New-Object System.Windows.Forms.Timer
@@ -272,11 +280,20 @@ $dockTimer.Add_Tick({
 
         $screen = [System.Windows.Forms.Screen]::FromHandle($form.Handle)
         $wa = $screen.WorkingArea
+
+        # Recovery: if window is off-screen (monitor changed), snap back
+        if ($form.Left -gt ($wa.X + $wa.Width) -or $form.Right -lt $wa.X -or $form.Top -gt ($wa.Y + $wa.Height)) {
+            $form.Left = $wa.X + $wa.Width - $form.Width
+            $form.Top = [Math]::Max($wa.Y, [Math]::Min($form.Top, $wa.Y + $wa.Height - $form.Height))
+            $script:sidebar.State = "Expanded"
+            $script:sidebar.HideDelay = 0
+        }
+
         $mouse = [System.Windows.Forms.Cursor]::Position
         $edgeX = $wa.X + $wa.Width
         $expandedX = $edgeX - $form.Width
         $peekX = $edgeX - $script:sidebar.PeekWidth
-        $safeZone = [System.Drawing.Rectangle]::Inflate($form.Bounds, 50, 30)
+        $safeZone = [System.Drawing.Rectangle]::Inflate($form.Bounds, 10, 10)
         $mouseInside = $safeZone.Contains($mouse)
 
         if ($script:sidebar.State -eq "Peek") {
@@ -297,8 +314,8 @@ $dockTimer.Add_Tick({
             }
         } else {
             # State = Expanded
-            # PRIORITY 3: Mouse inside safe zone OR focused → stay
-            if ($mouseInside -or $form.ContainsFocus) {
+            # PRIORITY 3: Mouse inside safe zone → stay
+            if ($mouseInside) {
                 $script:sidebar.HideDelay = 0
                 return
             }
